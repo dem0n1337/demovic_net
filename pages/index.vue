@@ -22,28 +22,30 @@ const POST_LINES = [
   { pre: 'SATA Port 5 : portfolio-ssd', tag: '[NOT DETECTED]', c: '#e5675f' },
 ]
 
+// `at` = ms from stage start — lines print in realistic bursts with pauses between
 const BOOT_ERRS = [
-  'error: no such device: p0rtf0l10-c0m1ng-s00n.',
-  'error: you need to load the kernel first.',
-  'attempting fallback to /vmlinuz-excuses …',
-  'falling back to panic()',
+  { at: 5300, m: 'error: no such device: p0rtf0l10-c0m1ng-s00n.' },
+  { at: 5460, m: 'error: you need to load the kernel first.' },
+  { at: 6900, m: 'attempting fallback to /vmlinuz-excuses …' },
+  { at: 8400, m: 'falling back to panic()' },
 ]
 
+// dracut warning pauses match their kernel timestamps (203.9 → 206.5 → 207.4)
 const SYSD_LINES = [
-  { tag: '[  OK  ]', tc: '#3fca7a', m: ' Started Journal Service.' },
-  { tag: '[  OK  ]', tc: '#3fca7a', m: ' Reached target Network is Online (it was dns).' },
-  { tag: '[  OK  ]', tc: '#3fca7a', m: ' Started rubber-duck-debugger.service — listening on /dev/ears.' },
-  { tag: '[  OK  ]', tc: '#3fca7a', m: ' Started excuse-generator.service (v2.6, works-on-my-machine edition).' },
-  { tag: '[  OK  ]', tc: '#3fca7a', m: ' Mounted /mnt/coffee (iv-drip, hot-pluggable).' },
-  { tag: '', tc: '', m: '[  203.960242] dracut-initqueue[504]: Warning: dracut-initqueue timeout - starting timeout scripts' },
-  { tag: '', tc: '', m: '[  206.517922] dracut-initqueue[504]: Warning: Could not boot.' },
-  { tag: '', tc: '', m: '[  207.430553] Warning: /dev/disk/by-uuid/p0rtf0l10-c0m1ng-s00n does not exist' },
-  { tag: '[FAILED]', tc: '#e5675f', m: ' Failed to mount /var/www/portfolio.' },
-  { tag: '[FAILED]', tc: '#e5675f', m: ' Failed to mount Mount unit for motivation, revision 404.' },
-  { tag: '[DEPEND]', tc: '#e5b567', m: ' Dependency failed for Local File Systems.' },
-  { tag: '[DEPEND]', tc: '#e5b567', m: ' Dependency failed for Shipping It.' },
-  { tag: '', tc: '', m: '         Starting Dracut Emergency Shell…' },
-  { tag: '', tc: '', m: 'Generating "/run/initramfs/rdsosreport.txt"' },
+  { at: 0, tag: '[  OK  ]', tc: '#3fca7a', m: ' Started Journal Service.' },
+  { at: 130, tag: '[  OK  ]', tc: '#3fca7a', m: ' Reached target Network is Online (it was dns).' },
+  { at: 260, tag: '[  OK  ]', tc: '#3fca7a', m: ' Started rubber-duck-debugger.service — listening on /dev/ears.' },
+  { at: 400, tag: '[  OK  ]', tc: '#3fca7a', m: ' Started excuse-generator.service (v2.6, works-on-my-machine edition).' },
+  { at: 530, tag: '[  OK  ]', tc: '#3fca7a', m: ' Mounted /mnt/coffee (iv-drip, hot-pluggable).' },
+  { at: 2700, tag: '', tc: '', m: '[  203.960242] dracut-initqueue[504]: Warning: dracut-initqueue timeout - starting timeout scripts' },
+  { at: 5260, tag: '', tc: '', m: '[  206.517922] dracut-initqueue[504]: Warning: Could not boot.' },
+  { at: 6170, tag: '', tc: '', m: '[  207.430553] Warning: /dev/disk/by-uuid/p0rtf0l10-c0m1ng-s00n does not exist' },
+  { at: 6320, tag: '[FAILED]', tc: '#e5675f', m: ' Failed to mount /var/www/portfolio.' },
+  { at: 6460, tag: '[FAILED]', tc: '#e5675f', m: ' Failed to mount Mount unit for motivation, revision 404.' },
+  { at: 7250, tag: '[DEPEND]', tc: '#e5b567', m: ' Dependency failed for Local File Systems.' },
+  { at: 7380, tag: '[DEPEND]', tc: '#e5b567', m: ' Dependency failed for Shipping It.' },
+  { at: 8600, tag: '', tc: '', m: '         Starting Dracut Emergency Shell…' },
+  { at: 9500, tag: '', tc: '', m: 'Generating "/run/initramfs/rdsosreport.txt"' },
 ]
 
 function welcome(): TermLine[] {
@@ -115,23 +117,15 @@ function runBoot() {
     bootPct.value = Math.min(43, bootPct.value + 2)
     if (bootPct.value >= 43) clearInterval(bootT)
   }, 220)
-  t(() => {
-    const errT = iv(() => {
-      bootErrN.value = Math.min(4, bootErrN.value + 1)
-      if (bootErrN.value >= 4) clearInterval(errT)
-    }, 1100)
-  }, 5300)
-  t(runSysd, 10500)
+  BOOT_ERRS.forEach((line, i) => t(() => { bootErrN.value = i + 1 }, line.at))
+  t(runSysd, 9900)
 }
 
 function runSysd() {
   clearStageTimers()
   stage.value = 'sysd'; sysdN.value = 0
-  const sT = iv(() => {
-    sysdN.value = Math.min(SYSD_LINES.length, sysdN.value + 1)
-    if (sysdN.value >= SYSD_LINES.length) clearInterval(sT)
-  }, 850)
-  t(() => (reducedMotion ? runPanic() : runGlitch()), 12800)
+  SYSD_LINES.forEach((line, i) => t(() => { sysdN.value = i + 1 }, line.at))
+  t(() => (reducedMotion ? runPanic() : runGlitch()), 10900)
 }
 
 function runGlitch() {
@@ -316,8 +310,8 @@ onBeforeUnmount(() => {
           <div>Memory Test : <span class="bios-mem">{{ memDisplay }}</span> KB<span v-if="mem >= 65536" class="c-green"> OK</span></div>
           <div class="bios-detect">Detecting devices…</div>
           <div v-for="(pl, i) in postLines" :key="i" class="bios-line">&nbsp;&nbsp;{{ pl.pre }} <span :style="{ color: pl.c }">{{ pl.tag }}</span></div>
+          <div class="bios-cursor"><span class="bios-block" /></div>
         </div>
-        <div class="bios-cursor"><span class="bios-block" /></div>
       </div>
 
       <!-- GRUB boot loader -->
@@ -328,7 +322,7 @@ onBeforeUnmount(() => {
           <div class="grub-track"><div class="grub-fill" :style="{ width: bootPct + '%' }" /></div>
           <div class="grub-meta"><span>mounting /var/www/portfolio</span><span class="grub-pct">{{ bootPct }}%</span></div>
           <div class="grub-errs">
-            <div v-for="(be, i) in bootErrs" :key="i" class="grub-err">{{ be }}</div>
+            <div v-for="(be, i) in bootErrs" :key="i" class="grub-err">{{ be.m }}</div>
           </div>
         </div>
       </div>
@@ -336,6 +330,7 @@ onBeforeUnmount(() => {
       <!-- systemd / dracut cascade -->
       <div v-else-if="stage === 'sysd'" class="sysd">
         <div v-for="(sl, i) in sysdLines" :key="i" class="sysd-line"><span v-if="sl.tag" :style="{ color: sl.tc }">{{ sl.tag }}</span>{{ sl.m }}</div>
+        <div class="bios-cursor"><span class="bios-block" /></div>
       </div>
 
       <!-- Glitch burst -->
@@ -469,7 +464,7 @@ onBeforeUnmount(() => {
 .bios-mem { color: #e8f0e9; font-weight: 700; }
 .bios-detect { margin-top: 20px; color: #7d8ca0; }
 .bios-line { animation: riseIn .18s ease both; white-space: pre-wrap; }
-.bios-cursor { position: fixed; bottom: 40px; left: 56px; color: #54637a; font-size: 12px; }
+.bios-cursor { margin-top: 6px; }
 .bios-block { display: inline-block; width: 8px; height: 13px; background: #b9c7bb; vertical-align: -2px; animation: blink 1s step-end infinite; }
 
 /* GRUB */

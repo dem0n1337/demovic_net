@@ -1,0 +1,13 @@
+node_modules
+.nuxt
+.nitro
+.cache
+.output
+.git
+.github
+.env
+*.log*
+dist
+.DS_Store
+design_handoff
+README.md

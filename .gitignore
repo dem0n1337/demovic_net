@@ -1,0 +1,12 @@
+# design handoff reference files — local only, never pushed
+design_handoff/
+
+node_modules
+*.log*
+.nuxt
+.nitro
+.cache
+.output
+.env
+dist
+.DS_Store

@@ -1,0 +1,31 @@
+services:
+  demovic-net:
+    build: .
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      - NODE_ENV=production
+      - NUXT_PUBLIC_SITE_MODE=${SITE_MODE:-coming-soon}
+      - NUXT_SMTP_SERVER=${SMTP_SERVER}
+      - NUXT_SMTP_USER=${SMTP_USER}
+      - NUXT_SMTP_PASS=${SMTP_PASS}
+    env_file:
+      - .env
+    volumes:
+      - notify-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok||r.status===503?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - demovic-network
+
+volumes:
+  notify-data:
+
+networks:
+  demovic-network:
+    driver: bridge

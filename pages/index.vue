@@ -14,33 +14,52 @@ const PANIC_END = maint
   : 'portfolio not found. it is, however, coming.'
 
 const POST_LINES = [
-  { pre: '[sata0] coffee-machine (load-bearing)', tag: '[OK]', c: '#3fca7a' },
-  { pre: '[usb0] rubber-duck-debugger (senior)', tag: '[OK, listening]', c: '#3fca7a' },
-  { pre: '[pci0] its-always-dns-detector', tag: '[OK, it was dns]', c: '#3fca7a' },
-  { pre: '[net0] cat-on-keyboard-detector', tag: '[OK, armed]', c: '#3fca7a' },
-  { pre: '[acpi] sleep-deprivation-controller', tag: '[OK, overclocked]', c: '#3fca7a' },
-  { pre: '[disk] /var/www/portfolio', tag: '[NOT FOUND]', c: '#e5675f' },
+  { pre: 'SATA Port 0 : hopes-and-dreams.img (1.0 TB)', tag: '[OK, read-only]', c: '#3fca7a' },
+  { pre: 'SATA Port 1 : backups-nightly (never tested)', tag: '[OK, probably]', c: '#3fca7a' },
+  { pre: 'NVMe Slot 0 : node_modules (1.2 TB)', tag: '[OK, black hole]', c: '#3fca7a' },
+  { pre: 'USB Device 1: rubber-duck-debugger (senior)', tag: '[OK, listening]', c: '#3fca7a' },
+  { pre: 'PS/2 Port   : cat-on-keyboard-detector', tag: '[OK, armed]', c: '#3fca7a' },
+  { pre: 'SATA Port 5 : portfolio-ssd', tag: '[NOT DETECTED]', c: '#e5675f' },
 ]
 
 const BOOT_ERRS = [
-  "error: file '/var/www/portfolio/index.vue' not found",
-  'error: you have to build it first',
-  'attempting emergency mount… failed',
+  'error: no such device: p0rtf0l10-c0m1ng-s00n.',
+  'error: you need to load the kernel first.',
+  'attempting fallback to /vmlinuz-excuses …',
   'falling back to panic()',
+]
+
+const SYSD_LINES = [
+  { tag: '[  OK  ]', tc: '#3fca7a', m: ' Started Journal Service.' },
+  { tag: '[  OK  ]', tc: '#3fca7a', m: ' Reached target Network is Online (it was dns).' },
+  { tag: '[  OK  ]', tc: '#3fca7a', m: ' Started rubber-duck-debugger.service — listening on /dev/ears.' },
+  { tag: '[  OK  ]', tc: '#3fca7a', m: ' Started excuse-generator.service (v2.6, works-on-my-machine edition).' },
+  { tag: '[  OK  ]', tc: '#3fca7a', m: ' Mounted /mnt/coffee (iv-drip, hot-pluggable).' },
+  { tag: '', tc: '', m: '[  203.960242] dracut-initqueue[504]: Warning: dracut-initqueue timeout - starting timeout scripts' },
+  { tag: '', tc: '', m: '[  206.517922] dracut-initqueue[504]: Warning: Could not boot.' },
+  { tag: '', tc: '', m: '[  207.430553] Warning: /dev/disk/by-uuid/p0rtf0l10-c0m1ng-s00n does not exist' },
+  { tag: '[FAILED]', tc: '#e5675f', m: ' Failed to mount /var/www/portfolio.' },
+  { tag: '[FAILED]', tc: '#e5675f', m: ' Failed to mount Mount unit for motivation, revision 404.' },
+  { tag: '[DEPEND]', tc: '#e5b567', m: ' Dependency failed for Local File Systems.' },
+  { tag: '[DEPEND]', tc: '#e5b567', m: ' Dependency failed for Shipping It.' },
+  { tag: '', tc: '', m: '         Starting Dracut Emergency Shell…' },
+  { tag: '', tc: '', m: 'Generating "/run/initramfs/rdsosreport.txt"' },
 ]
 
 function welcome(): TermLine[] {
   return [
-    { c: '#8fbfa0', m: '> recovery mode active. the site you tried to boot does not exist yet.' },
-    { c: '#4d7a5f', m: "> type 'notify your@email.com' to get pinged at launch, or 'help'." },
+    { c: '#8fbfa0', m: 'Entering emergency mode. Exit the shell to continue… (there is nothing to continue to.)' },
+    { c: '#4d7a5f', m: 'Type "journalctl -xb" to view system logs, \'notify your@email.com\' to get pinged at launch, or \'help\'.' },
+    { c: '#4d7a5f', m: 'Give root password for maintenance (or press Control-D to continue):' },
   ]
 }
 
-const stage = ref<'post' | 'boot' | 'glitch' | 'panic' | 'recovery'>('post')
+const stage = ref<'post' | 'boot' | 'sysd' | 'glitch' | 'panic' | 'recovery'>('post')
 const mem = ref(0)
 const postN = ref(0)
 const bootPct = ref(0)
 const bootErrN = ref(0)
+const sysdN = ref(0)
 const countdown = ref(3)
 const clock = ref('')
 const pct = ref(91.0)
@@ -51,6 +70,7 @@ const tuxFlash = ref(false)
 const memDisplay = computed(() => mem.value.toString().padStart(5, '0'))
 const postLines = computed(() => POST_LINES.slice(0, postN.value))
 const bootErrs = computed(() => BOOT_ERRS.slice(0, bootErrN.value))
+const sysdLines = computed(() => SYSD_LINES.slice(0, sysdN.value))
 const countdownDisplay = computed(() => countdown.value || 1)
 
 const conRef = ref<HTMLElement | null>(null)
@@ -73,31 +93,45 @@ function resetIdle() { if (stage.value === 'recovery') rebootIn.value = 45 }
 
 function runPost() {
   stage.value = 'post'; mem.value = 0; postN.value = 0
+  // memory counts up like an odometer (+512 KB every 20ms ≈ 2.6s),
+  // device detection starts only after it finishes
   const memT = iv(() => {
-    mem.value = Math.min(65536, mem.value + 4096)
-    if (mem.value >= 65536) clearInterval(memT)
-  }, 60)
-  const postT = iv(() => {
-    postN.value = Math.min(6, postN.value + 1)
-    if (postN.value >= 6) clearInterval(postT)
-  }, 320)
-  t(runBoot, 3400)
+    mem.value = Math.min(65536, mem.value + 512)
+    if (mem.value >= 65536) {
+      clearInterval(memT)
+      const postT = iv(() => {
+        postN.value = Math.min(6, postN.value + 1)
+        if (postN.value >= 6) clearInterval(postT)
+      }, 620)
+    }
+  }, 20)
+  t(runBoot, 7300)
 }
 
 function runBoot() {
   clearStageTimers()
   stage.value = 'boot'; bootPct.value = 0; bootErrN.value = 0
   const bootT = iv(() => {
-    bootPct.value = Math.min(43, bootPct.value + 7)
+    bootPct.value = Math.min(43, bootPct.value + 3)
     if (bootPct.value >= 43) clearInterval(bootT)
-  }, 120)
+  }, 190)
   t(() => {
     const errT = iv(() => {
       bootErrN.value = Math.min(4, bootErrN.value + 1)
       if (bootErrN.value >= 4) clearInterval(errT)
-    }, 350)
-  }, 1100)
-  t(() => (reducedMotion ? runPanic() : runGlitch()), 2900)
+    }, 700)
+  }, 3000)
+  t(runSysd, 6300)
+}
+
+function runSysd() {
+  clearStageTimers()
+  stage.value = 'sysd'; sysdN.value = 0
+  const sT = iv(() => {
+    sysdN.value = Math.min(SYSD_LINES.length, sysdN.value + 1)
+    if (sysdN.value >= SYSD_LINES.length) clearInterval(sT)
+  }, 420)
+  t(() => (reducedMotion ? runPanic() : runGlitch()), 6800)
 }
 
 function runGlitch() {
@@ -108,7 +142,7 @@ function runGlitch() {
 
 function runPanic() {
   clearStageTimers()
-  stage.value = 'panic'; countdown.value = 3
+  stage.value = 'panic'; countdown.value = 5
   const cdT = iv(() => {
     const c = countdown.value - 1
     if (c <= 0) { clearInterval(cdT); enterRecovery() }
@@ -141,7 +175,7 @@ function push(lines: TermLine[]) { term.value = [...term.value, ...lines].slice(
 function exec(v: string) {
   resetIdle()
   if (!v) return
-  const out: TermLine[] = [{ c: '#4d7a5f', m: 'recovery@demovic.net:~$ ' + v }]
+  const out: TermLine[] = [{ c: '#4d7a5f', m: 'emergency@demovic.net:/# ' + v }]
   const [cmd = '', ...rest] = v.split(/\s+/)
   const arg = rest.join(' ')
   const c = cmd.toLowerCase()
@@ -150,7 +184,7 @@ function exec(v: string) {
     { big: true, m: 'COMING SOON.' },
     { c: '#8fbfa0', m: '> a portfolio is compiling on this domain — almost there.' },
     { c: '#4d7a5f', m: 'jakub demovič · bratislava, slovakia · EN / DE / SK · everything else runs at 99.98%' },
-    { c: '#8fbfa0', m: '\nnotify <email> — one email at launch, nothing else\nstatus — rebuild progress · reboot — manual reboot (it panics again)\nclear — wipe the console' },
+    { c: '#8fbfa0', m: '\nnotify <email> — one email at launch, nothing else\njournalctl -xb — what actually went wrong\nstatus — rebuild progress · systemctl reboot — manual reboot (it panics again)\nclear — wipe the console' },
     { c: '#4d7a5f', m: 'psst — this shell knows more commands than it admits. sysadmins will find them.' },
   )
   else if (c === 'notify') {
@@ -164,6 +198,17 @@ function exec(v: string) {
     else out.push({ c: '#e5b567', m: 'usage: notify your@email.com' })
   }
   else if (c === 'status' || c === 'uptime') out.push({ c: '#8fbfa0', m: 'rebuild ' + pct.value.toFixed(1) + '% · everything else operational · uptime 99.98%' })
+  else if (c === 'journalctl') out.push({ c: '#8fbfa0', m: '-- Logs begin at boot. --\nportfolio.mount: FAILED — reason: perfectionism\nship_it.service: condition check never passed (ConditionDone=false)\nfinal_polish_loop.service: restarted 847×, still "almost there"\nrubber-duck-debugger.service: heard everything. says nothing.\n-- End of log. type \'notify <email>\' to be there when it works. --' })
+  else if (c === 'systemctl') {
+    const a = arg.toLowerCase()
+    if (a === 'reboot') { out.push({ c: '#57d68f', m: 'rebooting…' }); push(out); retryBoot(); return }
+    else if (a === 'default') out.push({ c: '#e5b567', m: "Failed to start default.target: unit not found — that's literally why you're here." })
+    else if (a.startsWith('status')) {
+      out.push({ c: '#e5675f', m: '● portfolio.mount — /var/www/portfolio' })
+      out.push({ c: '#8fbfa0', m: '     Loaded: not-built-yet (disabled; vendor preset: procrastinate)\n     Active: failed (Result: exit-code) since boot\n    Process: 2026 ExecMount=/bin/build-it-first (code=exited, status=404)' })
+    }
+    else out.push({ c: '#8fbfa0', m: "systemctl: try 'systemctl reboot', 'systemctl default' or 'systemctl status portfolio.mount'" })
+  }
   else if (c === 'retry' || c === 'reboot') { out.push({ c: '#57d68f', m: 'rebooting…' }); push(out); retryBoot(); return }
   else if (c === 'sudo' && arg.toLowerCase() === 'rm -rf /') {
     push(out)
@@ -184,7 +229,7 @@ function exec(v: string) {
   else if (c === 'ls') out.push({ c: '#8fbfa0', m: '.procrastination  .perfectionism  portfolio.tar.gz.part  TODO.md' })
   else if (c === 'whoami') out.push({ c: '#8fbfa0', m: "guest (until you run 'notify')" })
   else if (c === 'vim' || c === 'vi' || c === 'nano' || c === 'emacs') out.push({ c: '#8fbfa0', m: "you are now trapped in vim.\n…luckily this isn't real vim, so you've been rescued. no :q! required." })
-  else if (c === 'exit' || c === 'logout' || c === 'quit') out.push({ c: '#e5b567', m: 'there is no escape. the auto-reboot gets everyone eventually.' })
+  else if (c === 'exit' || c === 'logout' || c === 'quit') out.push({ c: '#e5b567', m: "Failed to start default.target: unit not found — that's literally why you're here.\n(also: there is no escape. the auto-reboot gets everyone eventually.)" })
   else if (c === 'fortune') {
     const f = ["it's always DNS.", 'a backup you never tested is a hope, not a backup.', 'the S in IoT stands for security.', 'works on my machine — certified.', 'there are two kinds of people: those who back up, and those who will.', 'uptime is a lifestyle.']
     out.push({ c: '#57d68f', m: f[Math.floor(Math.random() * f.length)]! })
@@ -268,7 +313,7 @@ onBeforeUnmount(() => {
         </div>
         <div class="bios-body">
           <div>CPU : 1x Human Engineer @ 8+ yrs <span class="c-green">[OK]</span></div>
-          <div>Memory Test : <span class="bios-mem">{{ memDisplay }}</span> KB OK</div>
+          <div>Memory Test : <span class="bios-mem">{{ memDisplay }}</span> KB<span v-if="mem >= 65536" class="c-green"> OK</span></div>
           <div class="bios-detect">Detecting devices…</div>
           <div v-for="(pl, i) in postLines" :key="i" class="bios-line">&nbsp;&nbsp;{{ pl.pre }} <span :style="{ color: pl.c }">{{ pl.tag }}</span></div>
         </div>
@@ -286,6 +331,11 @@ onBeforeUnmount(() => {
             <div v-for="(be, i) in bootErrs" :key="i" class="grub-err">{{ be }}</div>
           </div>
         </div>
+      </div>
+
+      <!-- systemd / dracut cascade -->
+      <div v-else-if="stage === 'sysd'" class="sysd">
+        <div v-for="(sl, i) in sysdLines" :key="i" class="sysd-line"><span v-if="sl.tag" :style="{ color: sl.tc }">{{ sl.tag }}</span>{{ sl.m }}</div>
       </div>
 
       <!-- Glitch burst -->
@@ -334,7 +384,7 @@ onBeforeUnmount(() => {
       <div class="rc">
         <div class="rc-card">
           <div class="rc-head">
-            <span class="rc-title"><span class="rc-dot" />demovic.net — recovery console v0.9</span>
+            <span class="rc-title"><span class="rc-dot" />demovic.net — emergency shell (dracut)</span>
             <span class="rc-clock">{{ clock }} CET</span>
           </div>
           <div class="rc-term" @click="termClick">
@@ -346,7 +396,7 @@ onBeforeUnmount(() => {
                 :style="tl.big ? undefined : { color: tl.c || '#8fbfa0' }"
               >{{ tl.m }}</div>
               <div class="rc-prompt">
-                <span class="rc-ps1">recovery@demovic.net:~$</span>
+                <span class="rc-ps1">emergency@demovic.net:/#</span>
                 <input
                   ref="termInRef"
                   class="rc-input"
@@ -418,7 +468,7 @@ onBeforeUnmount(() => {
 .bios-body { margin-top: 26px; }
 .bios-mem { color: #e8f0e9; font-weight: 700; }
 .bios-detect { margin-top: 20px; color: #7d8ca0; }
-.bios-line { animation: riseIn .18s ease both; }
+.bios-line { animation: riseIn .18s ease both; white-space: pre-wrap; }
 .bios-cursor { position: fixed; bottom: 40px; left: 56px; color: #54637a; font-size: 12px; }
 .bios-block { display: inline-block; width: 8px; height: 13px; background: #b9c7bb; vertical-align: -2px; animation: blink 1s step-end infinite; }
 
@@ -433,6 +483,10 @@ onBeforeUnmount(() => {
 .grub-pct { color: #e8f0e9; }
 .grub-errs { margin-top: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
 .grub-err { color: #e5675f; animation: riseIn .2s ease both; }
+
+/* systemd / dracut cascade */
+.sysd { min-height: 100vh; padding: 48px 56px; box-sizing: border-box; font-size: 13.5px; line-height: 1.8; color: #b9c7bb; }
+.sysd-line { white-space: pre-wrap; animation: riseIn .12s ease both; }
 
 /* Glitch burst */
 .glitch-stage { position: fixed; inset: 0; z-index: 70; background: #040608; animation: shake .12s linear infinite; }

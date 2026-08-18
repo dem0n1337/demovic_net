@@ -102,26 +102,26 @@ function runPost() {
       const postT = iv(() => {
         postN.value = Math.min(6, postN.value + 1)
         if (postN.value >= 6) clearInterval(postT)
-      }, 620)
+      }, 1000)
     }
   }, 20)
-  t(runBoot, 7300)
+  t(runBoot, 9600)
 }
 
 function runBoot() {
   clearStageTimers()
   stage.value = 'boot'; bootPct.value = 0; bootErrN.value = 0
   const bootT = iv(() => {
-    bootPct.value = Math.min(43, bootPct.value + 3)
+    bootPct.value = Math.min(43, bootPct.value + 2)
     if (bootPct.value >= 43) clearInterval(bootT)
-  }, 190)
+  }, 220)
   t(() => {
     const errT = iv(() => {
       bootErrN.value = Math.min(4, bootErrN.value + 1)
       if (bootErrN.value >= 4) clearInterval(errT)
-    }, 700)
-  }, 3000)
-  t(runSysd, 6300)
+    }, 1100)
+  }, 5300)
+  t(runSysd, 10500)
 }
 
 function runSysd() {
@@ -130,8 +130,8 @@ function runSysd() {
   const sT = iv(() => {
     sysdN.value = Math.min(SYSD_LINES.length, sysdN.value + 1)
     if (sysdN.value >= SYSD_LINES.length) clearInterval(sT)
-  }, 420)
-  t(() => (reducedMotion ? runPanic() : runGlitch()), 6800)
+  }, 850)
+  t(() => (reducedMotion ? runPanic() : runGlitch()), 12800)
 }
 
 function runGlitch() {
@@ -142,7 +142,7 @@ function runGlitch() {
 
 function runPanic() {
   clearStageTimers()
-  stage.value = 'panic'; countdown.value = 5
+  stage.value = 'panic'; countdown.value = 6
   const cdT = iv(() => {
     const c = countdown.value - 1
     if (c <= 0) { clearInterval(cdT); enterRecovery() }

@@ -14,11 +14,11 @@ const PANIC_END = maint
   : 'portfolio not found. it is, however, coming.'
 
 const POST_LINES = [
-  { pre: '[sata0] proxmox-cluster (3 nodes)', tag: '[OK]', c: '#3fca7a' },
-  { pre: '[sata1] gitlab-runner', tag: '[OK]', c: '#3fca7a' },
-  { pre: '[sata2] hashicorp-vault', tag: '[OK, sealed]', c: '#3fca7a' },
-  { pre: '[net0] zabbix-agent', tag: '[OK]', c: '#3fca7a' },
-  { pre: '[net1] backups (nightly)', tag: '[OK]', c: '#3fca7a' },
+  { pre: '[sata0] coffee-machine (load-bearing)', tag: '[OK]', c: '#3fca7a' },
+  { pre: '[usb0] rubber-duck-debugger (senior)', tag: '[OK, listening]', c: '#3fca7a' },
+  { pre: '[pci0] its-always-dns-detector', tag: '[OK, it was dns]', c: '#3fca7a' },
+  { pre: '[net0] cat-on-keyboard-detector', tag: '[OK, armed]', c: '#3fca7a' },
+  { pre: '[acpi] sleep-deprivation-controller', tag: '[OK, overclocked]', c: '#3fca7a' },
   { pre: '[disk] /var/www/portfolio', tag: '[NOT FOUND]', c: '#e5675f' },
 ]
 

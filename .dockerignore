@@ -11,3 +11,7 @@ dist
 .DS_Store
 design_handoff
 README.md
+tests
+playwright.config.ts
+test-results
+playwright-report

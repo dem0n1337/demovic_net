@@ -4,6 +4,9 @@ design_handoff/
 node_modules
 *.log*
 .nuxt
+test-results
+playwright-report
+blob-report
 .nitro
 .cache
 .output

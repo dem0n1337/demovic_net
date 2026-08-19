@@ -56,6 +56,19 @@ npm install
 npm run dev
 ```
 
+## Testing
+
+Playwright suite (`npm run build && npm test`) — 33 tests, ~20s, zero sleeps:
+
+- **E2E boot sequence** — every stage asserted (BIOS odometer, GRUB 43% stall, systemd/dracut bursts, glitch, panic, shell) using Playwright's **mocked clock** (`page.clock.runFor`), so the ~40s theatre runs in milliseconds and can't flake on timing.
+- **Emergency shell** — commands, easter eggs, staged skits, idle reset, attract-loop reload; `notify` against a mocked API (success + failure paths).
+- **API** — `POST /api/notify`: 400 validation, 200 + store persistence, 429 rate limit.
+- **Accessibility** — `prefers-reduced-motion` skips the glitch stage; mobile viewport has no horizontal overflow.
+- **Visual regression** — per-stage screenshots with animations disabled and a pinned clock/timezone.
+- **SSR/SEO** — console text server-rendered without JS, meta/canonical, maintenance mode 503 + `Retry-After`.
+
+CI runs the suite as a **quality gate**: `test` → image build+push → deploy → **post-deploy smoke** against https://demovic.net (200, SSR content, www→apex 301). Playwright HTML report is uploaded as a workflow artifact.
+
 ## Deployment
 
 Mirrors kvp-servis-modern: push to `master` → GitHub Actions builds the Docker image, pushes to GHCR, then SSH-deploys to the server (`~/demovic_net`, container bound to `127.0.0.1:3001`, nginx reverse-proxies `demovic.net`), purges Cloudflare cache and pings IndexNow.

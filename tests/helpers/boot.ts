@@ -17,10 +17,22 @@ export async function installBootClock(page: Page) {
   await page.clock.install({ time: new Date('2026-08-19T12:00:00') })
 }
 
-/** Load the page and fast-run the whole boot theatre into the emergency shell. */
-export async function enterShell(page: Page) {
+/**
+ * Load the page with a mocked clock and wait until the Vue app has hydrated.
+ * The console header clock renders "HH:MM:SS" only after mount — waiting for it
+ * guarantees the boot state machine registered its timers at mocked-time zero,
+ * so subsequent clock.runFor() calls advance the sequence deterministically
+ * (without this, slow CI runners start the machine mid-fast-forward).
+ */
+export async function openBooted(page: Page) {
   await installBootClock(page)
   await page.goto('/')
+  await expect(page.locator('.rc-clock')).toContainText(':')
+}
+
+/** Load the page and fast-run the whole boot theatre into the emergency shell. */
+export async function enterShell(page: Page) {
+  await openBooted(page)
   await page.clock.runFor(TO_SHELL)
   await expect(page.getByText('Entering emergency mode', { exact: false })).toBeVisible()
 }

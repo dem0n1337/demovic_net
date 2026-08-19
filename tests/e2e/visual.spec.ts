@@ -1,12 +1,11 @@
 import { expect, test } from '@playwright/test'
-import { installBootClock, STAGE } from '../helpers/boot'
+import { openBooted, STAGE } from '../helpers/boot'
 
 // Deterministic screenshots: the mocked clock freezes time, `animations: 'disabled'`
 // (set in playwright.config.ts) settles CSS animations, timezone/locale are pinned.
 test.describe('visual regression', () => {
   test.beforeEach(async ({ page }) => {
-    await installBootClock(page)
-    await page.goto('/')
+    await openBooted(page)
   })
 
   test('BIOS POST fully enumerated', async ({ page }) => {

@@ -1,10 +1,9 @@
 import { expect, test } from '@playwright/test'
-import { installBootClock, STAGE } from '../helpers/boot'
+import { openBooted, STAGE } from '../helpers/boot'
 
 test.describe('boot sequence', () => {
   test.beforeEach(async ({ page }) => {
-    await installBootClock(page)
-    await page.goto('/')
+    await openBooted(page)
   })
 
   test('BIOS POST: memory odometer completes, devices detected one by one', async ({ page }) => {

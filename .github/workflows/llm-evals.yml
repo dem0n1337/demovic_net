@@ -1,0 +1,44 @@
+name: LLM evals (support agent)
+
+# Deliberately manual — NOT a deploy gate. LLM output is non-deterministic and
+# every run costs real inference, so gating deploys on it would make them flaky
+# and expensive. Run on demand; read the report artifact.
+on:
+  workflow_dispatch:
+    inputs:
+      models:
+        description: 'Comma-separated model IDs (blank = repo default)'
+        required: false
+        default: ''
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
+    - name: Run LLM eval harness
+      env:
+        EVAL_BASE_URL: ${{ secrets.EVAL_BASE_URL }}
+        EVAL_API_KEY: ${{ secrets.EVAL_API_KEY }}
+        EVAL_MODELS: ${{ github.event.inputs.models != '' && github.event.inputs.models || secrets.EVAL_MODELS }}
+        EVAL_JUDGE_MODEL: ${{ secrets.EVAL_JUDGE_MODEL }}
+      run: node evals/run.mjs
+
+    - name: Upload eval report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: llm-eval-report
+        path: evals/reports/latest.md
+        retention-days: 30
+
+    - name: Summary
+      if: always()
+      run: cat evals/reports/latest.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true

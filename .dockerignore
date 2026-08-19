@@ -12,6 +12,9 @@ dist
 design_handoff
 README.md
 tests
+evals
 playwright.config.ts
 test-results
 playwright-report
+TEST-STRATEGY.md
+modal_llm

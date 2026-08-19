@@ -13,3 +13,4 @@ blob-report
 .env
 dist
 .DS_Store
+*.deb
